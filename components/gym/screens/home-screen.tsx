@@ -156,12 +156,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <span className="text-foreground">운동 기록</span>
           </button>
           <div className="h-px bg-border mx-4" />
-          <button className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors">
+          <button
+            onClick={() => onNavigate("apparatus")}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors"
+          >
             <Search className="w-5 h-5 text-muted-foreground" />
             <span className="text-foreground">기구 검색</span>
           </button>
           <div className="h-px bg-border mx-4" />
-          <button className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors">
+          <button
+            onClick={() => onNavigate("notices")}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors"
+          >
             <Volume2 className="w-5 h-5 text-muted-foreground" />
             <span className="text-foreground">공지사항</span>
           </button>

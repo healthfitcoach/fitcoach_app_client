@@ -20,7 +20,7 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
   const [step, setStep] = useState(1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate())
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null)
   const [selectedPT, setSelectedPT] = useState<PTSubscription | null>(null)
@@ -49,17 +49,24 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
     weeks.push(week)
   }
 
+  const today = new Date()
+  const isCurrentMonth = (year: number, month: number) =>
+    year === today.getFullYear() && month === today.getMonth()
+
   const prevMonth = () => {
-    if (selectedMonth === 0) { setSelectedYear(y => y - 1); setSelectedMonth(11) }
-    else setSelectedMonth(m => m - 1)
-    setSelectedDay(null)
+    const newYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear
+    const newMonth = selectedMonth === 0 ? 11 : selectedMonth - 1
+    setSelectedYear(newYear)
+    setSelectedMonth(newMonth)
+    setSelectedDay(isCurrentMonth(newYear, newMonth) ? today.getDate() : 1)
   }
   const nextMonth = () => {
-    if (selectedMonth === 11) { setSelectedYear(y => y + 1); setSelectedMonth(0) }
-    else setSelectedMonth(m => m + 1)
-    setSelectedDay(null)
+    const newYear = selectedMonth === 11 ? selectedYear + 1 : selectedYear
+    const newMonth = selectedMonth === 11 ? 0 : selectedMonth + 1
+    setSelectedYear(newYear)
+    setSelectedMonth(newMonth)
+    setSelectedDay(isCurrentMonth(newYear, newMonth) ? today.getDate() : 1)
   }
-
   const handleNext = () => { if (step < 3) setStep(s => s + 1) }
   const handlePrev = () => { if (step > 1) setStep(s => s - 1) }
 

@@ -7,6 +7,7 @@ import { Membership } from "@/lib/api/types"
 
 interface MembershipScreenProps {
   onBack: () => void
+  onNavigate?: (screen: string) => void
 }
 
 function calcDday(endDate: string): string {
@@ -23,7 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: "취소됨",
 }
 
-export function MembershipScreen({ onBack }: MembershipScreenProps) {
+export function MembershipScreen({ onBack, onNavigate }: MembershipScreenProps) {
   const [membership, setMembership] = useState<Membership | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -82,9 +83,12 @@ export function MembershipScreen({ onBack }: MembershipScreenProps) {
 
       {/* Extend Button */}
       <div className="px-5 mb-6">
-        <button className="w-full flex items-center justify-center gap-2 py-3 bg-secondary rounded-xl text-foreground font-medium hover:bg-muted transition-colors">
+        <button
+          onClick={() => onNavigate?.("membership-purchase")}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-secondary rounded-xl text-foreground font-medium hover:bg-muted transition-colors"
+        >
           <CreditCard className="w-5 h-5" />
-          회원권 연장
+          회원권 연장 / 구매
         </button>
       </div>
 

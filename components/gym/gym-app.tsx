@@ -8,11 +8,16 @@ import { SignupScreen } from "./screens/signup-screen"
 import { HomeScreen } from "./screens/home-screen"
 import { RecordsScreen } from "./screens/records-screen"
 import { AttendanceScreen } from "./screens/attendance-screen"
+import { AttendanceHistoryScreen } from "./screens/attendance-history-screen"
 import { MembershipScreen } from "./screens/membership-screen"
+import { MembershipPurchaseScreen } from "./screens/membership-purchase-screen"
 import { PointsScreen } from "./screens/points-screen"
 import { PTReservationScreen } from "./screens/pt-reservation-screen"
 import { MyPageScreen } from "./screens/mypage-screen"
 import { ReservationListScreen } from "./screens/reservation-list-screen"
+import { ApparatusScreen } from "./screens/apparatus-screen"
+import { NoticesScreen } from "./screens/notices-screen"
+import { ProfileEditScreen } from "./screens/profile-edit-screen"
 
 type Screen =
   | "home"
@@ -20,9 +25,14 @@ type Screen =
   | "reservation"
   | "mypage"
   | "attendance"
+  | "attendance-history"
   | "membership"
+  | "membership-purchase"
   | "points"
   | "pt-reservation"
+  | "apparatus"
+  | "notices"
+  | "profile-edit"
 
 type Tab = "home" | "records" | "reservation" | "mypage"
 
@@ -58,13 +68,28 @@ export function GymApp() {
       case "mypage":
         return <MyPageScreen onNavigate={handleNavigate} />
       case "attendance":
-        return <AttendanceScreen onBack={handleBack} />
+        return <AttendanceScreen onBack={handleBack} onNavigate={handleNavigate} />
+      case "attendance-history":
+        return <AttendanceHistoryScreen onBack={handleBack} />
       case "membership":
-        return <MembershipScreen onBack={handleBack} />
+        return <MembershipScreen onBack={handleBack} onNavigate={handleNavigate} />
+      case "membership-purchase":
+        return (
+          <MembershipPurchaseScreen
+            onBack={() => handleNavigate("membership")}
+            onSuccess={() => handleNavigate("membership")}
+          />
+        )
       case "points":
         return <PointsScreen onBack={handleBack} />
       case "pt-reservation":
         return <PTReservationScreen onBack={handleBack} />
+      case "apparatus":
+        return <ApparatusScreen onBack={handleBack} />
+      case "notices":
+        return <NoticesScreen onBack={handleBack} />
+      case "profile-edit":
+        return <ProfileEditScreen onBack={() => handleNavigate("mypage")} />
       default:
         return <HomeScreen onNavigate={handleNavigate} />
     }

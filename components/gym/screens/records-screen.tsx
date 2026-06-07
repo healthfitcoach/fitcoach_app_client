@@ -15,7 +15,10 @@ function formatDate(date: Date): string {
 }
 
 function toISODate(date: Date): string {
-  return date.toISOString().split("T")[0]
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
 }
 
 export function RecordsScreen({ onBack }: RecordsScreenProps) {
@@ -36,11 +39,12 @@ export function RecordsScreen({ onBack }: RecordsScreenProps) {
   const fetchRecords = async () => {
     setLoading(true)
     try {
-      // 전체 출석 기록에서 운동 기록 추출
       const res = await memberApi.getAttendances()
       const dateStr = toISODate(currentDate)
-      const todayAttendances = res.data.filter((a) => a.attendanceDateTime.startsWith(dateStr))
-      const allRecords = todayAttendances.flatMap((a) => a.exerciseRecords ?? [])
+      // 모든 출석의 운동 기록을 합친 뒤 exerciseDate로 필터링
+      const allRecords = res.data
+        .flatMap((a) => a.exerciseRecords ?? [])
+        .filter((r) => r.exerciseDate === dateStr)
       setRecords(allRecords)
     } catch {
       setRecords([])
@@ -63,10 +67,13 @@ export function RecordsScreen({ onBack }: RecordsScreenProps) {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await activityApi.recordExercise({ ...form, date: toISODate(currentDate) })
+      const res = await activityApi.recordExercise({ ...form, date: toISODate(currentDate) })
+      // 서버 응답을 즉시 로컬에 반영 (재조회와 무관하게 화면에 표시)
+      setRecords((prev) => [...prev, res.data])
       setShowForm(false)
       setForm({ date: toISODate(currentDate), exerciseType: "", memo: "" })
-      await fetchRecords()
+      // 서버에서 최신 목록도 다시 가져옴
+      fetchRecords()
     } catch {
     } finally {
       setSubmitting(false)
@@ -186,15 +193,15 @@ export function RecordsScreen({ onBack }: RecordsScreenProps) {
                 required
                 className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              <input
+                type="number"
+                placeholder="운동 시간 (분)"
+                min={1}
+                value={form.exerciseTime ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, exerciseTime: e.target.value ? Number(e.target.value) : undefined }))}
+                className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
               <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="운동 시간 (분)"
-                  min={1}
-                  value={form.exerciseTime ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, exerciseTime: e.target.value ? Number(e.target.value) : undefined }))}
-                  className="flex-1 px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
                 <input
                   type="number"
                   placeholder="세트"

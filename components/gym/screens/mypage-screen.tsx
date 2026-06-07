@@ -71,7 +71,10 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
             {member?.phone && <p className="text-sm text-muted-foreground">{member.phone}</p>}
             {member?.loginId && <p className="text-sm text-muted-foreground">{member.loginId}</p>}
           </div>
-          <button className="p-2 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => onNavigate("profile-edit")}
+            className="p-2 text-muted-foreground hover:text-foreground"
+          >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>

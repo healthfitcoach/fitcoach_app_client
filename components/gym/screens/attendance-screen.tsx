@@ -9,9 +9,10 @@ import { Attendance } from "@/lib/api/types"
 
 interface AttendanceScreenProps {
   onBack: () => void
+  onNavigate?: (screen: string) => void
 }
 
-export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
+export function AttendanceScreen({ onBack, onNavigate }: AttendanceScreenProps) {
   const [timeLeft, setTimeLeft] = useState(299)
   const [checkedIn, setCheckedIn] = useState<Attendance | null>(null)
   const [loading, setLoading] = useState(false)
@@ -129,7 +130,10 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
         )}
 
         {/* View History Link */}
-        <button className="w-full flex items-center justify-center gap-1 text-primary font-medium">
+        <button
+          onClick={() => onNavigate?.("attendance-history")}
+          className="w-full flex items-center justify-center gap-1 text-primary font-medium"
+        >
           출석 내역 보기 <ChevronRight className="w-4 h-4" />
         </button>
       </div>
