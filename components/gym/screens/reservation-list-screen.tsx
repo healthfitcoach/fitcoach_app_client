@@ -1,31 +1,26 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Calendar, Plus } from "lucide-react"
+import { ptApi } from "@/lib/api"
+import { PTSubscription } from "@/lib/api/types"
 
 interface ReservationListScreenProps {
   onNavigate: (screen: string) => void
 }
 
-const upcomingReservations = [
-  {
-    id: 1,
-    date: "2024.05.22 (수)",
-    time: "10:00",
-    trainer: "김태훈 트레이너",
-    location: "강남점 PT룸 1",
-    status: "예약 확정",
-  },
-  {
-    id: 2,
-    date: "2024.05.25 (토)",
-    time: "14:00",
-    trainer: "이지현 트레이너",
-    location: "강남점 PT룸 2",
-    status: "예약 확정",
-  },
-]
-
 export function ReservationListScreen({ onNavigate }: ReservationListScreenProps) {
+  const [ptList, setPtList] = useState<PTSubscription[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    ptApi
+      .getMyActivePTs()
+      .then((r) => setPtList(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -40,38 +35,45 @@ export function ReservationListScreen({ onNavigate }: ReservationListScreenProps
         </button>
       </header>
 
-      {/* Upcoming Reservations */}
+      {/* Active PT Subscriptions */}
       <div className="px-5">
-        <h2 className="text-base font-semibold text-foreground mb-3">다가오는 예약</h2>
-        
-        {upcomingReservations.length > 0 ? (
+        <h2 className="text-base font-semibold text-foreground mb-3">내 PT 이용권</h2>
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground py-4">불러오는 중...</p>
+        ) : ptList.length > 0 ? (
           <div className="space-y-3">
-            {upcomingReservations.map((reservation) => (
-              <div
-                key={reservation.id}
-                className="bg-secondary rounded-xl p-4"
-              >
+            {ptList.map((pt) => (
+              <div key={pt.id} className="bg-secondary rounded-xl p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-primary" />
                     <span className="font-semibold text-foreground">
-                      {reservation.date} {reservation.time}
+                      PT 이용권 #{pt.id}
                     </span>
                   </div>
                   <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                    {reservation.status}
+                    {pt.status === "ACTIVE" ? "이용 중" : "완료"}
                   </span>
                 </div>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">트레이너</span>
-                    <span className="text-foreground">{reservation.trainer}</span>
+                    <span className="text-muted-foreground">잔여 횟수</span>
+                    <span className="text-foreground font-medium">
+                      {pt.remainingCount} / {pt.totalCount}회
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">장소</span>
-                    <span className="text-foreground">{reservation.location}</span>
+                    <span className="text-muted-foreground">트레이너</span>
+                    <span className="text-foreground">#{pt.trainerId}</span>
                   </div>
                 </div>
+                <button
+                  onClick={() => onNavigate("pt-reservation")}
+                  className="mt-3 w-full py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors"
+                >
+                  PT 예약하기
+                </button>
               </div>
             ))}
           </div>
@@ -80,7 +82,7 @@ export function ReservationListScreen({ onNavigate }: ReservationListScreenProps
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
               <Calendar className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-muted-foreground mb-4">예약 내역이 없어요</p>
+            <p className="text-muted-foreground mb-4">PT 이용권이 없어요</p>
             <button
               onClick={() => onNavigate("pt-reservation")}
               className="px-6 py-3 bg-primary rounded-xl text-primary-foreground font-semibold"

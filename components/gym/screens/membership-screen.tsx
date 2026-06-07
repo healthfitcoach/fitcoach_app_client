@@ -1,12 +1,40 @@
 "use client"
 
-import { ChevronLeft, ChevronRight, CreditCard, MapPin, Clock, Dumbbell, FileText } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ChevronLeft, ChevronRight, CreditCard, Clock, Dumbbell, FileText } from "lucide-react"
+import { memberApi } from "@/lib/api"
+import { Membership } from "@/lib/api/types"
 
 interface MembershipScreenProps {
   onBack: () => void
 }
 
+function calcDday(endDate: string): string {
+  const diff = Math.ceil(
+    (new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  )
+  if (diff < 0) return "만료"
+  return `D-${diff}`
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "이용 중",
+  PAUSED: "일시정지",
+  CANCELLED: "취소됨",
+}
+
 export function MembershipScreen({ onBack }: MembershipScreenProps) {
+  const [membership, setMembership] = useState<Membership | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    memberApi
+      .getActiveMembership()
+      .then((r) => setMembership(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -32,11 +60,23 @@ export function MembershipScreen({ onBack }: MembershipScreenProps) {
               <path d="M20 50L40 60L60 50" stroke="white" strokeWidth="2" />
             </svg>
           </div>
-          <span className="text-primary-foreground/80 text-sm font-medium">
-            헬스 정기권
-          </span>
-          <p className="text-5xl font-bold text-primary-foreground mt-2">D-12</p>
-          <p className="text-primary-foreground/70 text-sm mt-2">2026.06.30 만료</p>
+          {loading ? (
+            <p className="text-primary-foreground/70 text-sm">불러오는 중...</p>
+          ) : membership ? (
+            <>
+              <span className="text-primary-foreground/80 text-sm font-medium">
+                {membership.type ?? "회원권"} · {STATUS_LABEL[membership.status]}
+              </span>
+              <p className="text-5xl font-bold text-primary-foreground mt-2">
+                {calcDday(membership.endDate)}
+              </p>
+              <p className="text-primary-foreground/70 text-sm mt-2">
+                {membership.startDate} ~ {membership.endDate}
+              </p>
+            </>
+          ) : (
+            <p className="text-primary-foreground/70 text-sm">활성 회원권이 없습니다.</p>
+          )}
         </div>
       </div>
 
@@ -51,17 +91,6 @@ export function MembershipScreen({ onBack }: MembershipScreenProps) {
       {/* Info List */}
       <div className="px-5">
         <div className="space-y-1">
-          <div className="flex items-center justify-between py-4 border-b border-border">
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-muted-foreground" />
-              <span className="text-foreground">이용 지점</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <span>강남점</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
-
           <div className="flex items-center justify-between py-4 border-b border-border">
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-muted-foreground" />

@@ -1,8 +1,11 @@
 "use client"
 
-import { Bell, ChevronRight, Calendar, Search, Volume2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, ChevronRight, Search, Volume2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { memberApi } from "@/lib/api"
+import { Membership } from "@/lib/api/types"
 
-// Custom PT icon matching the design
 function PTIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -14,7 +17,6 @@ function PTIcon({ className }: { className?: string }) {
   )
 }
 
-// Custom Dumbbell icon matching the design
 function DumbbellIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -31,7 +33,29 @@ interface HomeScreenProps {
   onNavigate: (screen: string) => void
 }
 
+function calcDday(endDate: string): string {
+  const diff = Math.ceil(
+    (new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  )
+  if (diff < 0) return "만료"
+  return `D-${diff}`
+}
+
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
+  const { member } = useAuth()
+  const [membership, setMembership] = useState<Membership | null>(null)
+  const [pointBalance, setPointBalance] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      memberApi.getActiveMembership().then((r) => setMembership(r.data)).catch(() => {}),
+      memberApi.getPoint().then((r) => setPointBalance(r.data.balance)).catch(() => {}),
+    ]).finally(() => setLoading(false))
+  }, [])
+
+  const displayName = member?.nickname ?? member?.name ?? "회원"
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -47,7 +71,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         <h1 className="text-2xl font-bold text-foreground">
           안녕하세요,
           <br />
-          경수님 👋
+          {displayName}님 👋
         </h1>
       </div>
 
@@ -77,21 +101,37 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           </button>
         </div>
         <div className="flex gap-4">
-          <div 
+          <div
             onClick={() => onNavigate("membership")}
             className="flex-1 bg-secondary rounded-xl p-4 cursor-pointer hover:bg-muted transition-colors"
           >
             <span className="text-sm text-muted-foreground">회원권</span>
-            <p className="text-2xl font-bold text-primary mt-1">D-12</p>
-            <p className="text-xs text-muted-foreground mt-1">2025.06.30 만료</p>
+            {loading ? (
+              <p className="text-2xl font-bold text-primary mt-1">--</p>
+            ) : membership ? (
+              <>
+                <p className="text-2xl font-bold text-primary mt-1">{calcDday(membership.endDate)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{membership.endDate} 만료</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">없음</p>
+            )}
           </div>
-          <div 
+          <div
             onClick={() => onNavigate("points")}
             className="flex-1 bg-secondary rounded-xl p-4 cursor-pointer hover:bg-muted transition-colors"
           >
             <span className="text-sm text-muted-foreground">포인트</span>
-            <p className="text-2xl font-bold text-primary mt-1">3,200P</p>
-            <p className="text-xs text-muted-foreground mt-1">사용 가능 포인트</p>
+            {loading ? (
+              <p className="text-2xl font-bold text-primary mt-1">--</p>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-primary mt-1">
+                  {pointBalance !== null ? `${pointBalance.toLocaleString()}P` : "0P"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">사용 가능 포인트</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -100,7 +140,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       <div className="px-5">
         <h3 className="text-base font-semibold text-foreground mb-3">빠른 메뉴</h3>
         <div className="bg-secondary rounded-xl overflow-hidden">
-          <button 
+          <button
             onClick={() => onNavigate("pt-reservation")}
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors"
           >
@@ -108,7 +148,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <span className="text-foreground">PT 예약</span>
           </button>
           <div className="h-px bg-border mx-4" />
-          <button 
+          <button
             onClick={() => onNavigate("records")}
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted transition-colors"
           >

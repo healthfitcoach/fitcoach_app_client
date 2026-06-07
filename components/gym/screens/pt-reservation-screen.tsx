@@ -1,40 +1,90 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ChevronLeft, ChevronRight, Check, X } from "lucide-react"
-import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { ptApi } from "@/lib/api"
+import { PTSubscription, PTSchedule, Trainer } from "@/lib/api/types"
 
 interface PTReservationScreenProps {
   onBack: () => void
 }
 
-const trainers = [
-  { name: "김태훈 트레이너", experience: "경력 6년", rating: "고객 만족도 4.9", time: "10:00" },
-  { name: "이지현 트레이너", experience: "경력 8년", rating: "고객 만족도 4.8", time: "11:00" },
-  { name: "박민수 트레이너", experience: "경력 10년", rating: "고객 만족도 4.9", time: "12:00" },
-  { name: "최유진 트레이너", experience: "경력 5년", rating: "고객 만족도 4.7", time: "13:00" },
-]
+const TIME_SLOTS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"]
+
+function toISODate(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
 
 export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
   const [step, setStep] = useState(1)
-  const [selectedDate, setSelectedDate] = useState(22)
-  const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null)
+  const [selectedPT, setSelectedPT] = useState<PTSubscription | null>(null)
+  const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [ptList, setPtList] = useState<PTSubscription[]>([])
+  const [completedSchedule, setCompletedSchedule] = useState<PTSchedule | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
-  const calendarDays = [
-    { week: 1, days: [null, null, null, 1, 2, 3, 4] },
-    { week: 2, days: [5, 6, 7, 8, 9, 10, 11] },
-    { week: 3, days: [12, 13, 14, 15, 16, 17, 18] },
-    { week: 4, days: [19, 20, 21, 22, 23, 24, 25] },
-    { week: 5, days: [26, 27, 28, 29, 30, null, null] },
-  ]
+  useEffect(() => {
+    ptApi.getTrainers().then((r) => setTrainers(r.data)).catch(() => {})
+    ptApi.getMyActivePTs().then((r) => setPtList(r.data)).catch(() => {})
+  }, [])
 
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1)
+  // 달력 계산
+  const firstDay = new Date(selectedYear, selectedMonth, 1).getDay()
+  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate()
+  const weeks: (number | null)[][] = []
+  let dayCounter = 1 - firstDay
+  while (dayCounter <= daysInMonth) {
+    const week: (number | null)[] = []
+    for (let i = 0; i < 7; i++) {
+      week.push(dayCounter >= 1 && dayCounter <= daysInMonth ? dayCounter : null)
+      dayCounter++
+    }
+    weeks.push(week)
   }
 
-  const handlePrev = () => {
-    if (step > 1) setStep(step - 1)
+  const prevMonth = () => {
+    if (selectedMonth === 0) { setSelectedYear(y => y - 1); setSelectedMonth(11) }
+    else setSelectedMonth(m => m - 1)
+    setSelectedDay(null)
   }
+  const nextMonth = () => {
+    if (selectedMonth === 11) { setSelectedYear(y => y + 1); setSelectedMonth(0) }
+    else setSelectedMonth(m => m + 1)
+    setSelectedDay(null)
+  }
+
+  const handleNext = () => { if (step < 3) setStep(s => s + 1) }
+  const handlePrev = () => { if (step > 1) setStep(s => s - 1) }
+
+  const handleReserve = async () => {
+    if (!selectedTrainer || !selectedDay || !selectedTime || !selectedPT) return
+    setSubmitting(true)
+    setError("")
+    try {
+      const res = await ptApi.reserveSchedule({
+        ptId: selectedPT.id,
+        trainerId: selectedTrainer.trainerId,
+        date: toISODate(selectedYear, selectedMonth, selectedDay),
+        time: selectedTime,
+      })
+      setCompletedSchedule(res.data)
+      setStep(3)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "예약에 실패했습니다.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const canNext1 = selectedDay !== null && selectedTime !== null
+  const canNext2 = selectedTrainer !== null && selectedPT !== null
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -56,16 +106,10 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
         {[1, 2, 3].map((s) => (
           <div key={s} className="flex items-center gap-4">
             <div className="flex flex-col items-center">
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors",
-                  step === s
-                    ? "bg-primary text-primary-foreground"
-                    : step > s
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground"
-                )}
-              >
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors",
+                step >= s ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+              )}>
                 {step > s ? <Check className="w-4 h-4" /> : s}
               </div>
               <span className="text-xs text-muted-foreground mt-1">
@@ -78,120 +122,162 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
       </div>
 
       {/* Step Content */}
-      <div className="flex-1 px-5">
+      <div className="flex-1 px-5 overflow-y-auto">
+        {/* Step 1: 날짜 & 시간 선택 */}
         {step === 1 && (
           <div>
             <h2 className="text-base font-semibold text-foreground mb-4">날짜 선택</h2>
-            
-            {/* Month Navigation */}
             <div className="flex items-center justify-between mb-4">
-              <button className="p-1 text-muted-foreground">
+              <button onClick={prevMonth} className="p-1 text-muted-foreground">
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <span className="font-medium text-foreground">2024년 5월</span>
-              <button className="p-1 text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {selectedYear}년 {selectedMonth + 1}월
+              </span>
+              <button onClick={nextMonth} className="p-1 text-muted-foreground">
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Calendar */}
-            <div className="bg-secondary rounded-xl p-4">
+            <div className="bg-secondary rounded-xl p-4 mb-4">
               <div className="grid grid-cols-7 gap-1 mb-2">
-                {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
-                  <div
-                    key={day}
-                    className="text-center text-sm text-muted-foreground py-2"
-                  >
-                    {day}
-                  </div>
+                {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+                  <div key={d} className="text-center text-sm text-muted-foreground py-2">{d}</div>
                 ))}
               </div>
-              {calendarDays.map((week) => (
-                <div key={week.week} className="grid grid-cols-7 gap-1">
-                  {week.days.map((day, index) => (
+              {weeks.map((week, wi) => (
+                <div key={wi} className="grid grid-cols-7 gap-1">
+                  {week.map((day, di) => (
                     <button
-                      key={index}
-                      onClick={() => day && setSelectedDate(day)}
+                      key={di}
+                      onClick={() => day && setSelectedDay(day)}
                       disabled={!day}
                       className={cn(
                         "py-2 text-center text-sm rounded-lg transition-colors",
-                        day === selectedDate
+                        day === selectedDay
                           ? "bg-primary text-primary-foreground font-semibold"
-                          : day
-                          ? "text-foreground hover:bg-muted"
-                          : "text-transparent"
+                          : day ? "text-foreground hover:bg-muted" : "text-transparent"
                       )}
                     >
-                      {day || ""}
+                      {day ?? ""}
                     </button>
                   ))}
                 </div>
               ))}
             </div>
-          </div>
-        )}
 
-        {step === 2 && (
-          <div>
-            <h2 className="text-base font-semibold text-foreground mb-4">트레이너 선택</h2>
-            <div className="space-y-3">
-              {trainers.map((trainer) => (
+            <h2 className="text-base font-semibold text-foreground mb-3">시간 선택</h2>
+            <div className="grid grid-cols-4 gap-2">
+              {TIME_SLOTS.map((t) => (
                 <button
-                  key={trainer.name}
-                  onClick={() => setSelectedTrainer(trainer.name)}
+                  key={t}
+                  onClick={() => setSelectedTime(t)}
                   className={cn(
-                    "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors",
-                    selectedTrainer === trainer.name
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
+                    "py-2.5 rounded-xl text-sm font-medium border-2 transition-colors",
+                    selectedTime === t
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-foreground hover:border-primary/30"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-primary font-semibold">
-                      {trainer.name.charAt(0)}
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-foreground">{trainer.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {trainer.experience} | {trainer.rating}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1.5 bg-secondary rounded-lg text-primary font-semibold text-sm">
-                    {trainer.time}
-                  </span>
+                  {t}
                 </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* Step 2: 트레이너 & PT 선택 */}
+        {step === 2 && (
+          <div>
+            <h2 className="text-base font-semibold text-foreground mb-4">트레이너 선택</h2>
+            {trainers.length === 0 ? (
+              <p className="text-muted-foreground text-sm">트레이너 정보를 불러오는 중...</p>
+            ) : (
+              <div className="space-y-3 mb-6">
+                {trainers.map((trainer) => (
+                  <button
+                    key={trainer.trainerId}
+                    onClick={() => setSelectedTrainer(trainer)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors",
+                      selectedTrainer?.trainerId === trainer.trainerId
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-primary font-semibold">
+                        {trainer.trainerId}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium text-foreground">트레이너 #{trainer.trainerId}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {trainer.specialty && `${trainer.specialty}`}
+                          {trainer.experienceYears && ` · 경력 ${trainer.experienceYears}년`}
+                          {trainer.rating && ` · ★ ${trainer.rating}`}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <h2 className="text-base font-semibold text-foreground mb-4">PT 이용권 선택</h2>
+            {ptList.length === 0 ? (
+              <p className="text-sm text-muted-foreground">활성 PT 이용권이 없습니다.</p>
+            ) : (
+              <div className="space-y-3">
+                {ptList.map((pt) => (
+                  <button
+                    key={pt.id}
+                    onClick={() => setSelectedPT(pt)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors",
+                      selectedPT?.id === pt.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/30"
+                    )}
+                  >
+                    <div className="text-left">
+                      <p className="font-medium text-foreground">PT 이용권 #{pt.id}</p>
+                      <p className="text-sm text-muted-foreground">잔여 {pt.remainingCount}회 / {pt.totalCount}회</p>
+                    </div>
+                    {selectedPT?.id === pt.id && <Check className="w-5 h-5 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {error && <p className="text-sm text-destructive mt-4 text-center">{error}</p>}
+          </div>
+        )}
+
+        {/* Step 3: 완료 */}
         {step === 3 && (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
               <Check className="w-10 h-10 text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              예약이 완료되었습니다!
-            </h2>
-            <div className="w-full bg-secondary rounded-xl p-5 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">예약 일시</span>
-                <span className="text-foreground font-medium">2024.05.22 (수) 10:00</span>
+            <h2 className="text-xl font-bold text-foreground mb-6">예약이 완료되었습니다!</h2>
+            {completedSchedule && (
+              <div className="w-full bg-secondary rounded-xl p-5 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">예약 날짜</span>
+                  <span className="text-foreground font-medium">{completedSchedule.scheduleDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">예약 시간</span>
+                  <span className="text-foreground font-medium">{completedSchedule.scheduleTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">트레이너</span>
+                  <span className="text-foreground font-medium">#{completedSchedule.trainerId}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">트레이너</span>
-                <span className="text-foreground font-medium">김태훈 트레이너</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">장소</span>
-                <span className="text-foreground font-medium">강남점 PT룸 1</span>
-              </div>
-            </div>
+            )}
             <p className="text-sm text-muted-foreground mt-4 text-center">
-              {"예약 내역은 마이 > PT 예약 내역에서"}
-              <br />
-              확인할 수 있습니다.
+              예약 내역은 예약 탭에서 확인할 수 있습니다.
             </p>
           </div>
         )}
@@ -199,30 +285,39 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
 
       {/* Bottom Button */}
       <div className="p-5 pb-8">
-        {step < 3 ? (
-          <div className="flex gap-3">
-            {step > 1 && (
-              <button
-                onClick={handlePrev}
-                className="flex-1 py-4 bg-secondary rounded-xl text-foreground font-semibold hover:bg-muted transition-colors"
-              >
-                이전
-              </button>
+        {step === 1 && (
+          <button
+            onClick={handleNext}
+            disabled={!canNext1}
+            className={cn(
+              "w-full py-4 rounded-xl font-semibold transition-colors",
+              canNext1 ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground"
             )}
+          >
+            다음
+          </button>
+        )}
+        {step === 2 && (
+          <div className="flex gap-3">
             <button
-              onClick={handleNext}
-              disabled={step === 2 && !selectedTrainer}
+              onClick={handlePrev}
+              className="flex-1 py-4 bg-secondary rounded-xl text-foreground font-semibold hover:bg-muted transition-colors"
+            >
+              이전
+            </button>
+            <button
+              onClick={handleReserve}
+              disabled={!canNext2 || submitting}
               className={cn(
                 "flex-1 py-4 rounded-xl font-semibold transition-colors",
-                step === 2 && !selectedTrainer
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+                canNext2 && !submitting ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground"
               )}
             >
-              다음
+              {submitting ? "예약 중..." : "예약하기"}
             </button>
           </div>
-        ) : (
+        )}
+        {step === 3 && (
           <button
             onClick={onBack}
             className="w-full py-4 bg-primary rounded-xl text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"

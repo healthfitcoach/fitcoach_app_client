@@ -1,21 +1,40 @@
 "use client"
 
-import { ChevronLeft, Dumbbell, CheckCircle, GraduationCap, Gift } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { ChevronLeft, Dumbbell, CheckCircle, GraduationCap, Gift, TrendingDown } from "lucide-react"
+import { memberApi } from "@/lib/api"
+import { Point, PointHistory } from "@/lib/api/types"
 
 interface PointsScreenProps {
   onBack: () => void
 }
 
-const pointsHistory = [
-  { type: "운동 기록", icon: Dumbbell, points: "+100P", date: "2024.05.20", description: "" },
-  { type: "출석 체크", icon: CheckCircle, points: "+50P", date: "2024.05.20", description: "" },
-  { type: "PT 수업 완료", icon: GraduationCap, points: "+300P", date: "2024.05.18", description: "" },
-  { type: "이벤트 참여", icon: Gift, points: "+200P", date: "2024.05.15", description: "" },
-]
+function getIcon(type: string) {
+  if (type.includes("운동")) return Dumbbell
+  if (type.includes("출석")) return CheckCircle
+  if (type.includes("PT")) return GraduationCap
+  if (type.includes("사용") || type.includes("차감")) return TrendingDown
+  return Gift
+}
 
 export function PointsScreen({ onBack }: PointsScreenProps) {
   const [activeTab, setActiveTab] = useState<"earn" | "use">("earn")
+  const [point, setPoint] = useState<Point | null>(null)
+  const [histories, setHistories] = useState<PointHistory[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      memberApi.getPoint().then((r) => setPoint(r.data)),
+      memberApi.getPointHistories().then((r) => setHistories(r.data)),
+    ])
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const earnList = histories.filter((h) => h.amount > 0)
+  const useList = histories.filter((h) => h.amount < 0)
+  const displayList = activeTab === "earn" ? earnList : useList
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -36,17 +55,18 @@ export function PointsScreen({ onBack }: PointsScreenProps) {
       <div className="px-5 pt-4 mb-4">
         <div className="bg-secondary rounded-2xl p-5 text-center">
           <span className="text-sm text-muted-foreground">사용 가능 포인트</span>
-          <p className="text-4xl font-bold text-primary mt-2">3,200P</p>
-          <div className="flex justify-center gap-8 mt-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">적립 예정</span>
-              <p className="text-foreground font-medium mt-1">500P</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">이번 달 소멸 예정</span>
-              <p className="text-foreground font-medium mt-1">200P</p>
-            </div>
-          </div>
+          {loading ? (
+            <p className="text-4xl font-bold text-primary mt-2">--</p>
+          ) : (
+            <p className="text-4xl font-bold text-primary mt-2">
+              {(point?.balance ?? 0).toLocaleString()}P
+            </p>
+          )}
+          {point?.expiryDate && (
+            <p className="text-sm text-muted-foreground mt-2">
+              만료일: {point.expiryDate}
+            </p>
+          )}
         </div>
       </div>
 
@@ -85,13 +105,16 @@ export function PointsScreen({ onBack }: PointsScreenProps) {
 
       {/* History List */}
       <div className="px-5">
-        {activeTab === "earn" ? (
+        {loading ? (
+          <p className="text-center text-muted-foreground py-12">불러오는 중...</p>
+        ) : displayList.length > 0 ? (
           <div className="space-y-1">
-            {pointsHistory.map((item, index) => {
-              const Icon = item.icon
+            {displayList.map((item) => {
+              const Icon = getIcon(item.reason ?? item.type)
+              const isEarn = item.amount > 0
               return (
                 <div
-                  key={index}
+                  key={item.historyId}
                   className="flex items-center justify-between py-4 border-b border-border last:border-b-0"
                 >
                   <div className="flex items-center gap-3">
@@ -99,18 +122,22 @@ export function PointsScreen({ onBack }: PointsScreenProps) {
                       <Icon className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <span className="text-foreground font-medium">{item.type}</span>
+                      <span className="text-foreground font-medium">
+                        {item.reason ?? item.type}
+                      </span>
                       <p className="text-sm text-muted-foreground mt-0.5">{item.date}</p>
                     </div>
                   </div>
-                  <span className="text-primary font-semibold">{item.points}</span>
+                  <span className={isEarn ? "text-primary font-semibold" : "text-destructive font-semibold"}>
+                    {isEarn ? "+" : ""}{item.amount.toLocaleString()}P
+                  </span>
                 </div>
               )
             })}
           </div>
         ) : (
           <div className="py-12 text-center text-muted-foreground">
-            사용 내역이 없습니다
+            {activeTab === "earn" ? "적립 내역이 없습니다" : "사용 내역이 없습니다"}
           </div>
         )}
       </div>
