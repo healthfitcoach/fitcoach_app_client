@@ -5,6 +5,24 @@ import { ChevronLeft, ChevronRight, CalendarDays, Plus, X } from "lucide-react"
 import { memberApi, activityApi } from "@/lib/api"
 import { ExerciseRecord, ExerciseRecordRequest } from "@/lib/api/types"
 
+const LOCAL_RECORDS_KEY = "fitcoach_local_exercise_records"
+
+function loadLocalRecords(): ExerciseRecord[] {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_RECORDS_KEY) ?? "[]")
+  } catch {
+    return []
+  }
+}
+
+function saveLocalRecord(record: ExerciseRecord) {
+  try {
+    const existing = loadLocalRecords()
+    const merged = [...existing.filter((r) => r.recordId !== record.recordId), record]
+    localStorage.setItem(LOCAL_RECORDS_KEY, JSON.stringify(merged))
+  } catch {}
+}
+
 interface RecordsScreenProps {
   onBack?: () => void
 }
@@ -36,18 +54,27 @@ export function RecordsScreen({ onBack }: RecordsScreenProps) {
     memo: "",
   })
 
+  // API 기록과 로컬 저장 기록을 병합 (중복 제거)
+  function mergeWithLocalRecords(apiRecords: ExerciseRecord[], dateStr: string): ExerciseRecord[] {
+    const localForDate = loadLocalRecords().filter((r) => r.exerciseDate === dateStr)
+    const apiIds = new Set(apiRecords.map((r) => r.recordId))
+    const localOnly = localForDate.filter((r) => !apiIds.has(r.recordId))
+    return [...apiRecords, ...localOnly]
+  }
+
   const fetchRecords = async () => {
     setLoading(true)
+    const dateStr = toISODate(currentDate)
     try {
       const res = await memberApi.getAttendances()
-      const dateStr = toISODate(currentDate)
-      // 모든 출석의 운동 기록을 합친 뒤 exerciseDate로 필터링
-      const allRecords = res.data
+      const apiRecords = res.data
         .flatMap((a) => a.exerciseRecords ?? [])
         .filter((r) => r.exerciseDate === dateStr)
-      setRecords(allRecords)
+      setRecords(mergeWithLocalRecords(apiRecords, dateStr))
     } catch {
-      setRecords([])
+      // API 실패 시 로컬 기록만 표시
+      const localForDate = loadLocalRecords().filter((r) => r.exerciseDate === dateStr)
+      setRecords(localForDate)
     } finally {
       setLoading(false)
     }
@@ -66,15 +93,33 @@ export function RecordsScreen({ onBack }: RecordsScreenProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
+    const dateStr = toISODate(currentDate)
     try {
-      const res = await activityApi.recordExercise({ ...form, date: toISODate(currentDate) })
-      // 서버 응답을 즉시 로컬에 반영 (재조회와 무관하게 화면에 표시)
-      setRecords((prev) => [...prev, res.data])
+      const res = await activityApi.recordExercise({ ...form, date: dateStr })
+      const newRecord: ExerciseRecord = { ...res.data, exerciseDate: res.data.exerciseDate ?? dateStr }
+      saveLocalRecord(newRecord)
+      setRecords((prev) => {
+        const exists = prev.some((r) => r.recordId === newRecord.recordId)
+        return exists ? prev : [...prev, newRecord]
+      })
       setShowForm(false)
-      setForm({ date: toISODate(currentDate), exerciseType: "", memo: "" })
-      // 서버에서 최신 목록도 다시 가져옴
-      fetchRecords()
+      setForm({ date: dateStr, exerciseType: "", memo: "" })
     } catch {
+      // API 실패해도 로컬에만 임시 저장하여 표시
+      const tempRecord: ExerciseRecord = {
+        recordId: `local_${Date.now()}`,
+        memberId: "",
+        exerciseDate: dateStr,
+        exerciseType: form.exerciseType,
+        exerciseTime: form.exerciseTime,
+        sets: form.sets,
+        reps: form.reps,
+        memo: form.memo,
+      }
+      saveLocalRecord(tempRecord)
+      setRecords((prev) => [...prev, tempRecord])
+      setShowForm(false)
+      setForm({ date: dateStr, exerciseType: "", memo: "" })
     } finally {
       setSubmitting(false)
     }

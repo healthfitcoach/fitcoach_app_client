@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { ChevronLeft, ChevronRight, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ptApi } from "@/lib/api"
-import { PTSubscription, PTSchedule, Trainer } from "@/lib/api/types"
+import { PTSubscription, PTSchedule } from "@/lib/api/types"
 
 interface PTReservationScreenProps {
   onBack: () => void
@@ -22,16 +22,13 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate())
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null)
   const [selectedPT, setSelectedPT] = useState<PTSubscription | null>(null)
-  const [trainers, setTrainers] = useState<Trainer[]>([])
   const [ptList, setPtList] = useState<PTSubscription[]>([])
   const [completedSchedule, setCompletedSchedule] = useState<PTSchedule | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    ptApi.getTrainers().then((r) => setTrainers(r.data)).catch(() => {})
     ptApi.getMyActivePTs().then((r) => setPtList(r.data)).catch(() => {})
   }, [])
 
@@ -71,13 +68,13 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
   const handlePrev = () => { if (step > 1) setStep(s => s - 1) }
 
   const handleReserve = async () => {
-    if (!selectedTrainer || !selectedDay || !selectedTime || !selectedPT) return
+    if (!selectedDay || !selectedTime || !selectedPT) return
     setSubmitting(true)
     setError("")
     try {
       const res = await ptApi.reserveSchedule({
         ptId: selectedPT.id,
-        trainerId: selectedTrainer.trainerId,
+        trainerId: selectedPT.trainerId,
         date: toISODate(selectedYear, selectedMonth, selectedDay),
         time: selectedTime,
       })
@@ -91,7 +88,7 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
   }
 
   const canNext1 = selectedDay !== null && selectedTime !== null
-  const canNext2 = selectedTrainer !== null && selectedPT !== null
+  const canNext2 = selectedPT !== null
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -120,7 +117,7 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
                 {step > s ? <Check className="w-4 h-4" /> : s}
               </div>
               <span className="text-xs text-muted-foreground mt-1">
-                {s === 1 ? "일시 선택" : s === 2 ? "트레이너 선택" : "예약 확인"}
+                {s === 1 ? "일시 선택" : s === 2 ? "이용권 선택" : "예약 확인"}
               </span>
             </div>
             {s < 3 && <div className="w-12 h-0.5 bg-border -mt-5" />}
@@ -193,43 +190,9 @@ export function PTReservationScreen({ onBack }: PTReservationScreenProps) {
           </div>
         )}
 
-        {/* Step 2: 트레이너 & PT 선택 */}
+        {/* Step 2: PT 선택 */}
         {step === 2 && (
           <div>
-            <h2 className="text-base font-semibold text-foreground mb-4">트레이너 선택</h2>
-            {trainers.length === 0 ? (
-              <p className="text-muted-foreground text-sm">트레이너 정보를 불러오는 중...</p>
-            ) : (
-              <div className="space-y-3 mb-6">
-                {trainers.map((trainer) => (
-                  <button
-                    key={trainer.trainerId}
-                    onClick={() => setSelectedTrainer(trainer)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors",
-                      selectedTrainer?.trainerId === trainer.trainerId
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/30"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-primary font-semibold">
-                        {trainer.trainerId}
-                      </div>
-                      <div className="text-left">
-                        <p className="font-medium text-foreground">트레이너 #{trainer.trainerId}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {trainer.specialty && `${trainer.specialty}`}
-                          {trainer.experienceYears && ` · 경력 ${trainer.experienceYears}년`}
-                          {trainer.rating && ` · ★ ${trainer.rating}`}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
             <h2 className="text-base font-semibold text-foreground mb-4">PT 이용권 선택</h2>
             {ptList.length === 0 ? (
               <p className="text-sm text-muted-foreground">활성 PT 이용권이 없습니다.</p>
